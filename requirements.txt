@@ -1,0 +1,7 @@
+fastmcp>=2,<3
+elasticsearch>=8.16,<10
+aiohttp>=3.9
+pydantic>=2.10
+pydantic-settings>=2.6
+beautifulsoup4>=4.12
+lxml>=5.0

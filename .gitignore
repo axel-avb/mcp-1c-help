@@ -1,0 +1,144 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage*
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# IDE - General
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# IDE - VS Code specific
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+
+# IDE - PyCharm specific
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries/
+
+# GitHub instructions (local development rules)
+.github/instructions/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+data/
+
+# Exclude .hbk files from root directory
+*.hbk
+
+# Docker
+.dockerignore
+
+# Temporary files created by parsers
+temp_*/
+help1c_temp_*/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Performance profiling
+*.prof
+*.pstats
+
+# Local development overrides
+local_config.py
+dev_config.py
+
+# Log files (additional patterns)
+*.log
+logs/
+
+# Development databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Large test files
+test_data/*.hbk
+test_data/large_*
+
+# Editor temporary files
+*~
+.#*
+\#*#
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Local development scripts
+run_local.py
+test_local.py
+debug_*.py
+
+# Docker artifacts
+*.tar
+
+
+.git_creditionals.md

@@ -1,0 +1,20 @@
+services:
+  mcp-server:
+    build: .
+    container_name: mcp-1c-helper
+    ports:
+      - "8002:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - MCP_PORT=8000
+    volumes:
+      - ./data:/app/data:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8000), 5); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
