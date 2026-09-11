@@ -3,7 +3,8 @@
 Read-only MCP-сервер справки по синтаксису 1С:Предприятие 8.3. Ищет по индексу
 документации в общем Elasticsearch и отдаёт результат ИИ-агентам через MCP.
 
-Быстрый запуск — [QUICKSTART.md](QUICKSTART.md).
+- Краткий запуск — [QUICKSTART.md](QUICKSTART.md).
+- Полный пошаговый мануал по Docker — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Состав
 
