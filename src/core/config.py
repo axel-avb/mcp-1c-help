@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     mcp_host: str = "0.0.0.0"
     mcp_port: int = 8000
 
+    # Эмбеддинги (внешний сервис; пусто = только лексический поиск)
+    embedding_url: str = ""
+    embedding_model: str = "jina-code-embeddings-1.5b-GGUF"
+    embedding_key: str = ""
+    embedding_dims: int = 1536
+
     # Данные
     hbk_path: str = "data/hbk/shcntx_ru.hbk"
     logs_directory: str = "logs"

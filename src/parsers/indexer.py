@@ -4,10 +4,21 @@ from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
 
 from src.models.doc_models import Documentation, ParsedHBK
+from src.core import embedder
 from src.core.elasticsearch import ElasticsearchClient
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def embedding_text(doc: Dict[str, Any]) -> str:
+    """Текст документа для эмбеддинга (с контекстом объекта)."""
+    parts = [
+        doc.get("full_path") or doc.get("name", ""),
+        doc.get("syntax_ru", ""),
+        doc.get("description", ""),
+    ]
+    return ". ".join(part for part in parts if part)[:4000]
 
 
 class ElasticsearchIndexer:
@@ -75,17 +86,26 @@ class ElasticsearchIndexer:
             return True
         
         try:
+            payloads = [self._prepare_document(doc) for doc in documents]
+
+            if embedder.enabled():
+                vectors = await embedder.embed_texts(
+                    [embedding_text(payload) for payload in payloads]
+                )
+                for payload, vector in zip(payloads, vectors):
+                    payload["embedding"] = vector
+
             # Подготавливаем bulk запрос
             bulk_body = []
-            
-            for doc in documents:
+
+            for doc, payload in zip(documents, payloads):
                 bulk_body.append({
                     "index": {
                         "_index": self.es_client.index,
                         "_id": doc.id
                     }
                 })
-                bulk_body.append(self._prepare_document(doc))
+                bulk_body.append(payload)
 
             response = await self.es_client.bulk(bulk_body)
 

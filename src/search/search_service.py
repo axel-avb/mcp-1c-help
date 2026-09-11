@@ -3,6 +3,7 @@
 from typing import List, Dict, Any, Optional
 import time
 
+from src.core import embedder
 from src.core.elasticsearch import ElasticsearchClient
 from src.core.logging import get_logger
 from src.search.query_builder import QueryBuilder
@@ -10,6 +11,28 @@ from src.search.ranker import SearchRanker
 from src.search.formatter import SearchFormatter
 
 logger = get_logger(__name__)
+
+RRF_K = 60
+
+
+def _fuse_rrf(hit_lists: List[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """Reciprocal Rank Fusion нескольких ранжированных списков по _id."""
+    fused: Dict[str, Dict[str, Any]] = {}
+    scores: Dict[str, float] = {}
+    for hits in hit_lists:
+        for rank, hit in enumerate(hits, 1):
+            key = hit.get("_id") or hit.get("_source", {}).get("id")
+            if key is None:
+                continue
+            fused.setdefault(key, hit)
+            scores[key] = scores.get(key, 0.0) + 1.0 / (RRF_K + rank)
+    result = []
+    for key, hit in fused.items():
+        item = dict(hit)
+        item["_score"] = scores[key]
+        result.append(item)
+    result.sort(key=lambda x: x["_score"], reverse=True)
+    return result
 
 
 class SearchService:
@@ -20,6 +43,20 @@ class SearchService:
         self.query_builder = QueryBuilder()
         self.ranker = SearchRanker()
         self.formatter = SearchFormatter()
+
+    async def _vector_hits(self, query: str, size: int) -> List[Dict[str, Any]]:
+        """kNN-поиск по полю embedding."""
+        vector = await embedder.embed_query(query)
+        response = await self.es_client.search({
+            "knn": {
+                "field": "embedding",
+                "query_vector": vector,
+                "k": size,
+                "num_candidates": max(size * 2, 50),
+            },
+            "size": size,
+        })
+        return response.get("hits", {}).get("hits", [])
     
     async def find_help_by_query(self, query: str, limit: int = 5) -> Dict[str, Any]:
         """Универсальный поиск справки по любому элементу 1С."""
@@ -36,14 +73,14 @@ class SearchService:
                     "error": "Elasticsearch недоступен"
                 }
             
-            # Строим запрос
+            fetch = max(limit * 3, 20) if embedder.enabled() else limit
+
+            # Лексический поиск (BM25)
             es_query = self.query_builder.build_search_query(
                 query=query,
-                limit=limit,
+                limit=fetch,
                 search_type="auto"
             )
-            
-            # Выполняем поиск
             response = await self.es_client.search(es_query)
             
             if not response:
@@ -55,16 +92,23 @@ class SearchService:
                     "error": "Ошибка выполнения поиска"
                 }
             
-            # Извлекаем результаты
             hits = response.get("hits", {}).get("hits", [])
             total = response.get("hits", {}).get("total", {})
             total_count = total.get("value", 0) if isinstance(total, dict) else total
+
+            # Семантический поиск + RRF (если включён эмбеддер)
+            if embedder.enabled():
+                try:
+                    vector_hits = await self._vector_hits(query, fetch)
+                    hits = _fuse_rrf([hits, vector_hits])
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(f"Векторный поиск недоступен, только BM25: {e}")
             
             # Ранжируем результаты
             ranked_results = self.ranker.rank_results(hits, query)
             
             # Форматируем для вывода
-            formatted_results = self.formatter.format_search_results(ranked_results)
+            formatted_results = self.formatter.format_search_results(ranked_results)[:limit]
             
             search_time = int((time.time() - start_time) * 1000)
             

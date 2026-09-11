@@ -27,10 +27,19 @@ compose.yml          один сервис + внешний ES
 
 - Elasticsearch: внешний сервис в сети — `ELASTICSEARCH_URL`
   (по умолчанию `http://192.168.31.31:9200`).
-- Индекс задаётся в конфиге: `ELASTICSEARCH_INDEX` (по умолчанию `help1c_docs`).
-  Индекс уже создан и наполнен; переиндексация — только вручную (см. ниже).
+- Индекс задаётся в конфиге: `ELASTICSEARCH_INDEX` (по умолчанию `help1c_docs_v2`,
+  семантический; `help1c_docs` — прежний лексический).
+- Эмбеддинги: внешний сервис `EMBEDDING_URL` (`http://192.168.31.32:8081/v1`).
+  Если пусто — поиск только лексический (BM25).
 - MCP наружу публикуется на `8002`: `http://<host>:8002/mcp`.
 - Логи пишутся в `/app/logs` (том `./logs`), уровень — `LOG_LEVEL`.
+
+## Поиск
+
+- `find_1c_help` работает гибридно: BM25 + kNN по эмбеддингам, слияние через RRF.
+- Остальные tools — по точному имени/объекту, лексический поиск.
+- Eval качества (description-запросы): `python -m scripts.eval_search`.
+  Ориентир на индексе `help1c_docs_v2`: Recall@3 ≈ 46%, Recall@5 ≈ 50%.
 
 ## Запуск
 
@@ -71,6 +80,23 @@ python -m scripts.index_hbk --hbk data/hbk/shcntx_ru.hbk --reindex
 
 Без `--reindex` индексация выполняется только если индекс пуст. Для извлечения
 `.hbk` нужен `7z` (в образе ставится `p7zip-full`).
+
+## Семантический индекс (эмбеддинги)
+
+Отдельный скрипт читает готовый индекс, считает векторы через `EMBEDDING_URL` и
+пишет в новый индекс с полем `embedding`. Исходный индекс не меняется.
+
+```bash
+docker run --rm \
+  -e ELASTICSEARCH_URL=http://192.168.31.31:9200 \
+  -e EMBEDDING_URL=http://192.168.31.32:8081/v1 \
+  mcp-1c-helper:local \
+  python -m scripts.build_semantic_index \
+    --source help1c_docs --target help1c_docs_v2 --recreate
+```
+
+После сборки укажи `ELASTICSEARCH_INDEX=help1c_docs_v2` в `.env` — `find_1c_help`
+включит kNN+RRF автоматически (при заданном `EMBEDDING_URL`).
 
 ## Подключение opencode
 

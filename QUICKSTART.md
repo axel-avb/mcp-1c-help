@@ -60,6 +60,25 @@ docker compose run --rm mcp-server \
 
 Положить `.hbk` перед запуском: `data/hbk/shcntx_ru.hbk`.
 
+## Семантический поиск (эмбеддинги)
+
+По умолчанию `.env` уже указывает на `help1c_docs_v2` и эмбеддер
+(`EMBEDDING_URL=http://192.168.31.32:8081/v1`). Индекс `help1c_docs_v2` уже собран.
+
+Пересобрать его из лексического `help1c_docs` (например, после смены модели):
+
+```bash
+docker run --rm \
+  -e ELASTICSEARCH_URL=http://192.168.31.31:9200 \
+  -e EMBEDDING_URL=http://192.168.31.32:8081/v1 \
+  mcp-1c-helper:local \
+  python -m scripts.build_semantic_index \
+    --source help1c_docs --target help1c_docs_v2 --recreate
+```
+
+Проверить качество: `python -m scripts.eval_search`
+(в контейнере — `docker run --rm ... python -m scripts.eval_search`).
+
 ## Если не работает
 
 - **`Elasticsearch недоступен`** — проверь `ELASTICSEARCH_URL` в `.env` и доступность

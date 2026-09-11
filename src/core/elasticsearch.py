@@ -54,6 +54,12 @@ INDEX_MAPPING: Dict[str, Any] = {
             "examples": {"type": "text", "analyzer": "russian"},
             "source_file": {"type": "keyword"},
             "full_path": {"type": "keyword"},
+            "embedding": {
+                "type": "dense_vector",
+                "dims": settings.embedding_dims,
+                "index": True,
+                "similarity": "cosine",
+            },
         }
     },
 }
@@ -111,45 +117,65 @@ class ElasticsearchClient:
     def index(self) -> str:
         return settings.elasticsearch_index
 
-    async def index_exists(self) -> bool:
+    async def index_exists(self, index: Optional[str] = None) -> bool:
         if self._client is None:
             return False
-        return bool(await self._client.indices.exists(index=self.index))
+        return bool(await self._client.indices.exists(index=index or self.index))
 
-    async def create_index(self) -> bool:
+    async def create_index(self, index: Optional[str] = None) -> bool:
         if self._client is None:
             return False
-        await self._client.indices.create(index=self.index, body=INDEX_MAPPING)
-        logger.info(f"Индекс '{self.index}' создан")
+        target = index or self.index
+        await self._client.indices.create(index=target, body=INDEX_MAPPING)
+        logger.info(f"Индекс '{target}' создан")
         return True
 
-    async def delete_index(self) -> bool:
-        if self._client is not None and await self.index_exists():
-            await self._client.indices.delete(index=self.index)
+    async def delete_index(self, index: Optional[str] = None) -> bool:
+        target = index or self.index
+        if self._client is not None and await self.index_exists(target):
+            await self._client.indices.delete(index=target)
             return True
         return False
 
-    async def get_documents_count(self) -> int:
+    async def get_documents_count(self, index: Optional[str] = None) -> int:
         if self._client is None:
             return 0
-        response = await self._client.count(index=self.index)
+        response = await self._client.count(index=index or self.index)
         return int(response["count"])
 
-    async def refresh_index(self) -> bool:
+    async def refresh_index(self, index: Optional[str] = None) -> bool:
         if self._client is None:
             return False
-        await self._client.indices.refresh(index=self.index)
+        await self._client.indices.refresh(index=index or self.index)
         return True
 
-    async def search(self, query: Dict[str, Any]) -> Dict[str, Any]:
+    async def search(
+        self, query: Dict[str, Any], index: Optional[str] = None
+    ) -> Dict[str, Any]:
         if self._client is None:
             raise RuntimeError("Elasticsearch недоступен")
-        return await self._client.search(index=self.index, body=query)
+        return await self._client.search(index=index or self.index, body=query)
 
-    async def bulk(self, body: list) -> Dict[str, Any]:
+    async def bulk(
+        self, body: list, index: Optional[str] = None
+    ) -> Dict[str, Any]:
         if self._client is None:
             raise RuntimeError("Elasticsearch недоступен")
-        return await self._client.bulk(body=body)
+        return await self._client.bulk(body=body, index=index)
+
+    async def scan_all(self, index: Optional[str] = None):
+        """Асинхронно перебирает все документы индекса."""
+        if self._client is None:
+            raise RuntimeError("Elasticsearch недоступен")
+        from elasticsearch.helpers import async_scan
+
+        async for hit in async_scan(
+            self._client,
+            index=index or self.index,
+            query={"query": {"match_all": {}}},
+            preserve_order=False,
+        ):
+            yield hit
 
 
 _client: Optional[ElasticsearchClient] = None
