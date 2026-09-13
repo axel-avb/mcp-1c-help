@@ -36,6 +36,12 @@ INDEX_MAPPING: Dict[str, Any] = {
                 "analyzer": "russian",
                 "fields": {"keyword": {"type": "keyword"}},
             },
+            "name_cn": {
+                "type": "text",
+                "analyzer": "russian",
+                "fields": {"keyword": {"type": "keyword"}},
+            },
+            "name_en": {"type": "keyword"},
             "object": {"type": "keyword"},
             "syntax_ru": {"type": "text"},
             "syntax_en": {"type": "text"},

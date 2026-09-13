@@ -44,42 +44,48 @@ class ElasticsearchIndexer:
         Returns:
             bool: True если успешно, False иначе
         """
+        return await self.index_documents(parsed_hbk.documentation, progress_callback)
+
+    async def index_documents(
+        self,
+        documents: List[Documentation],
+        progress_callback: Optional[Callable[[int, int], None]] = None
+    ) -> bool:
+        """Индексирует список документов в Elasticsearch батчами."""
         if not await self.es_client.is_connected():
             logger.error("Нет подключения к Elasticsearch")
             return False
-        
+
         try:
             # Проверяем/создаем индекс
             if not await self.es_client.index_exists():
                 logger.info("Создаем индекс Elasticsearch")
                 await self.es_client.create_index()
-            
-            # Индексируем документы батчами с отчётом о прогрессе
-            total_docs = len(parsed_hbk.documentation)
+
+            total_docs = len(documents)
             indexed_count = 0
-            
+
             for i in range(0, total_docs, self.batch_size):
-                batch = parsed_hbk.documentation[i:i + self.batch_size]
-                
+                batch = documents[i:i + self.batch_size]
+
                 success = await self._index_batch(batch)
                 if success:
                     indexed_count += len(batch)
-                    
-                    # Вызываем callback для отчёта о прогрессе
+
                     if progress_callback:
                         progress_callback(indexed_count, total_docs)
                 else:
                     logger.error(f"Ошибка индексации батча {i}-{i+len(batch)}")
-            
+
             # Принудительно обновляем индекс для немедленного отражения изменений
             await self.es_client.refresh_index()
-            
+
             return indexed_count == total_docs
-            
+
         except Exception as e:
             logger.error(f"Ошибка индексации документации: {e}")
             return False
-    
+
     async def _index_batch(self, documents: List[Documentation]) -> bool:
         """Индексирует батч документов."""
         if not documents:
@@ -121,12 +127,29 @@ class ElasticsearchIndexer:
             logger.error(f"Ошибка выполнения bulk запроса: {e}")
             return False
     
+    @staticmethod
+    def _split_name(name: str) -> tuple[str, str]:
+        """Разделяет имя "Выполнить (Execute)" на русское и английское.
+
+        Returns:
+            (name_cn, name_en) — чистое русское имя и английское (пусто, если нет).
+        """
+        name = (name or "").strip()
+        if "(" in name and name.rstrip().endswith(")"):
+            before, _, inside = name.rpartition("(")
+            return before.strip(), inside.rstrip(")").strip()
+        return name, ""
+
     def _prepare_document(self, doc: Documentation) -> Dict[str, Any]:
         """Подготавливает документ для индексации в Elasticsearch."""
+        name_cn, name_en = self._split_name(doc.name)
         es_doc = {
             "id": doc.id,
             "type": doc.type.value,
+            "source": doc.source,
             "name": doc.name,
+            "name_cn": name_cn,
+            "name_en": name_en,
             "object": doc.object,
             "syntax_ru": doc.syntax_ru,
             "syntax_en": doc.syntax_en,
@@ -165,10 +188,18 @@ class ElasticsearchIndexer:
         Returns:
             bool: True если успешно, False иначе
         """
+        return await self.reindex_documents(parsed_hbk.documentation, progress_callback)
+
+    async def reindex_documents(
+        self,
+        documents: List[Documentation],
+        progress_callback: Optional[Callable[[int, int], None]] = None
+    ) -> bool:
+        """Пересоздаёт индекс и заливает список документов."""
         try:
             await self.es_client.delete_index()
             await self.es_client.create_index()
-            return await self.index_documentation(parsed_hbk, progress_callback)
+            return await self.index_documents(documents, progress_callback)
 
         except Exception as e:
             logger.error(f"Ошибка переиндексации: {e}")

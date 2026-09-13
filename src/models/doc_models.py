@@ -16,6 +16,8 @@ class DocumentType(str, Enum):
     OBJECT_EVENT = "object_event"
     OBJECT_CONSTRUCTOR = "object_constructor"
     OBJECT = "object"
+    REFERENCE = "reference"  # статьи: язык запросов, руководство, конструкции языка
+    SYNTAX_TEMPLATE = "syntax_template"  # шаблон синтаксиса из .st
 
 
 class ObjectMethod(BaseModel):
@@ -61,6 +63,7 @@ class Documentation(BaseModel):
     usage: Optional[str] = None  # Для свойств - "Чтение и запись", "Только чтение" и т.д.
     version_from: Optional[str] = None
     examples: List[str] = []
+    source: str = ""  # корпус: context | query | devguide | language
     source_file: str = ""
     full_path: str = ""  # Полный путь типа "ТаблицаЗначений.Добавить"
     

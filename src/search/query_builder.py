@@ -37,15 +37,36 @@ class QueryBuilder:
             return self._build_multi_match_search(query, limit)
     
     def build_exact_query(self, function_name: str) -> Dict[str, Any]:
-        """Строит точный запрос по имени функции."""
+        """Строит точный запрос по имени функции.
+
+        Имя в индексе хранится как "Выполнить (Execute)", поэтому точное
+        совпадение term по name.keyword невозможно — идём префиксом
+        по полному имени и бустим глобальные функции/процедуры.
+        """
         return {
             "query": {
-                "bool": {
-                    "should": [
-                        {"term": {"name.keyword": {"value": function_name, "boost": 3.0}}},
-                        {"term": {"full_path": {"value": function_name, "boost": 2.0}}},
-                        {"match_phrase": {"name": {"query": function_name, "boost": 1.5}}}
-                    ]
+                "function_score": {
+                    "query": {
+                        "bool": {
+                            "should": [
+                                {"prefix": {"name.keyword": {"value": function_name, "boost": 5.0}}},
+                                {"prefix": {"full_path": {"value": function_name, "boost": 2.0}}},
+                                {"match_phrase": {"name": {"query": function_name, "boost": 1.5}}}
+                            ],
+                            "minimum_should_match": 1
+                        }
+                    },
+                    "functions": [
+                        {
+                            "filter": {
+                                "terms": {
+                                    "type": ["global_function", "global_procedure", "global_event"]
+                                }
+                            },
+                            "weight": 2.0
+                        }
+                    ],
+                    "boost_mode": "multiply"
                 }
             },
             "size": 5,

@@ -152,7 +152,7 @@ class SearchService:
                             ],
                             "should": [
                                 # Точное совпадение по полному названию (высокий приоритет)
-                                {"term": {"name.keyword": {"value": element_name, "boost": 5.0}}},
+                                {"prefix": {"name.keyword": {"value": element_name, "boost": 5.0}}},
                                 # Поиск по частям названия (русское и английское)
                                 {"match": {"name": {"query": element_name, "boost": 3.0}}},
                                 # Wildcard поиск для частичных совпадений
@@ -172,7 +172,14 @@ class SearchService:
             response = await self.es_client.search(elasticsearch_query)
             
             if response.get('hits', {}).get('total', {}).get('value', 0) > 0:
-                doc = response['hits']['hits'][0]['_source']
+                # Прогоняем через ранкер: при одинаковом совпадении имени
+                # глобальные функции/процедуры выигрывают у методов объектов.
+                ranked = self.ranker.rank_results(
+                    response['hits']['hits'], element_name
+                )
+                if not ranked:
+                    return None
+                doc = ranked[0]['document']
                 
                 # Фильтруем примеры если не нужны
                 if not include_examples:

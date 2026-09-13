@@ -13,6 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY scripts/ ./scripts/
 
+# HBK-архивы справки (~74 МБ) вшиваются в образ: daemon не видит хостовые
+# bind-пути, поэтому volume для /app/data мёртв, данные живут в образе.
+COPY data/hbk/ /app/data/hbk/
+
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
